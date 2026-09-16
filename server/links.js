@@ -48,10 +48,21 @@ export function methodNotAllowed(response, allowed) {
   return response.status(405).json({ error: 'Método no permitido.' })
 }
 
+export function storageErrorReason(error) {
+  if (error?.code === '42P01') return 'table_missing'
+  if (error?.code === '3D000') return 'database_missing'
+  if (error?.code === '28P01' || error?.code === '28000') return 'database_authentication'
+  if (error?.code === 'ENOTFOUND') return 'database_dns'
+  if (error?.code === 'ECONNREFUSED') return 'database_refused'
+  if (error?.code === 'ETIMEDOUT' || error?.code === 'ECONNRESET') return 'database_timeout'
+  return 'database_unknown'
+}
+
 export function storageError(response, scope, error) {
   console.error('[link-storage]', scope, {
     code: error?.code,
     message: error?.message,
+    reason: storageErrorReason(error),
   })
   return response.status(503).json({
     error: 'No se pudo conectar con el almacenamiento de enlaces. Intenta de nuevo.',

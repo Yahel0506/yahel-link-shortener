@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { db } from '../server/db.js'
-import { storageError } from '../server/links.js'
+import { storageErrorReason } from '../server/links.js'
 
 export default async function handler(request, response) {
   if (request.method !== 'GET') {
@@ -18,6 +18,15 @@ export default async function handler(request, response) {
       schema: tableReady ? 'ready' : 'missing_short_links',
     })
   } catch (error) {
-    return storageError(response, 'health', error)
+    console.error('[link-storage]', 'health', {
+      code: error?.code,
+      message: error?.message,
+      reason: storageErrorReason(error),
+    })
+    return response.status(503).json({
+      error: 'No se pudo conectar con el almacenamiento de enlaces. Intenta de nuevo.',
+      code: 'LINK_STORAGE_UNAVAILABLE',
+      reason: storageErrorReason(error),
+    })
   }
 }
