@@ -1,6 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { shortLinks } from '../db/schema.js'
 import { db } from '../server/db.js'
+import { storageError } from '../server/links.js'
 
 export default async function handler(request, response) {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -11,11 +12,16 @@ export default async function handler(request, response) {
   const code = Array.isArray(request.query?.code) ? request.query.code[0] : request.query?.code
   if (typeof code !== 'string') return response.status(404).send('Enlace no encontrado.')
 
-  const [link] = await db
-    .select({ destinationUrl: shortLinks.destinationUrl })
-    .from(shortLinks)
-    .where(and(eq(shortLinks.shortCode, code), isNull(shortLinks.deletedAt)))
-    .limit(1)
+  let link
+  try {
+    ;[link] = await db
+      .select({ destinationUrl: shortLinks.destinationUrl })
+      .from(shortLinks)
+      .where(and(eq(shortLinks.shortCode, code), isNull(shortLinks.deletedAt)))
+      .limit(1)
+  } catch (error) {
+    return storageError(response, 'redirect', error)
+  }
 
   if (!link) return response.status(404).send('Este enlace no existe o ya no está activo.')
 

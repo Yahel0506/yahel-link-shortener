@@ -7,6 +7,7 @@ import {
   methodNotAllowed,
   normalizeDestination,
   publicLink,
+  storageError,
 } from '../server/links.js'
 
 export default async function handler(request, response) {
@@ -22,20 +23,24 @@ export default async function handler(request, response) {
   const managementToken = createManagementToken()
   const managementTokenHash = hashManagementToken(managementToken)
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const shortCode = createShortCode()
-    try {
-      const [created] = await db
-        .insert(shortLinks)
-        .values({ shortCode, destinationUrl, managementTokenHash })
-        .returning()
+  try {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const shortCode = createShortCode()
+      try {
+        const [created] = await db
+          .insert(shortLinks)
+          .values({ shortCode, destinationUrl, managementTokenHash })
+          .returning()
 
-      response.setHeader('Cache-Control', 'no-store')
-      return response.status(201).json({ link: publicLink(created, managementToken) })
-    } catch (error) {
-      const isCollision = error?.code === '23505'
-      if (!isCollision || attempt === 3) throw error
+        response.setHeader('Cache-Control', 'no-store')
+        return response.status(201).json({ link: publicLink(created, managementToken) })
+      } catch (error) {
+        const isCollision = error?.code === '23505'
+        if (!isCollision || attempt === 3) throw error
+      }
     }
+  } catch (error) {
+    return storageError(response, 'create', error)
   }
 
   return response.status(500).json({ error: 'No se pudo crear el enlace.' })

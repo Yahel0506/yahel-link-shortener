@@ -1,7 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { shortLinks } from '../../db/schema.js'
 import { db } from '../../server/db.js'
-import { hashManagementToken, methodNotAllowed } from '../../server/links.js'
+import { hashManagementToken, methodNotAllowed, storageError } from '../../server/links.js'
 
 export default async function handler(request, response) {
   if (request.method !== 'DELETE') return methodNotAllowed(response, 'DELETE')
@@ -12,17 +12,22 @@ export default async function handler(request, response) {
     return response.status(400).json({ error: 'Solicitud incompleta.' })
   }
 
-  const [deleted] = await db
-    .update(shortLinks)
-    .set({ deletedAt: new Date() })
-    .where(
-      and(
-        eq(shortLinks.shortCode, id),
-        eq(shortLinks.managementTokenHash, hashManagementToken(managementToken)),
-        isNull(shortLinks.deletedAt),
-      ),
-    )
-    .returning({ id: shortLinks.shortCode })
+  let deleted
+  try {
+    ;[deleted] = await db
+      .update(shortLinks)
+      .set({ deletedAt: new Date() })
+      .where(
+        and(
+          eq(shortLinks.shortCode, id),
+          eq(shortLinks.managementTokenHash, hashManagementToken(managementToken)),
+          isNull(shortLinks.deletedAt),
+        ),
+      )
+      .returning({ id: shortLinks.shortCode })
+  } catch (error) {
+    return storageError(response, 'delete', error)
+  }
 
   if (!deleted) return response.status(404).json({ error: 'El enlace no existe o ya fue eliminado.' })
 

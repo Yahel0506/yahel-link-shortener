@@ -1,7 +1,7 @@
 import { and, eq, isNull, or } from 'drizzle-orm'
 import { shortLinks } from '../../db/schema.js'
 import { db } from '../../server/db.js'
-import { hashManagementToken, methodNotAllowed, publicLink } from '../../server/links.js'
+import { hashManagementToken, methodNotAllowed, publicLink, storageError } from '../../server/links.js'
 
 export default async function handler(request, response) {
   if (request.method !== 'POST') return methodNotAllowed(response, 'POST')
@@ -22,11 +22,16 @@ export default async function handler(request, response) {
     ),
   )
 
-  const rows = await db
-    .select()
-    .from(shortLinks)
-    .where(and(isNull(shortLinks.deletedAt), or(...conditions)))
-    .orderBy(shortLinks.createdAt)
+  let rows
+  try {
+    rows = await db
+      .select()
+      .from(shortLinks)
+      .where(and(isNull(shortLinks.deletedAt), or(...conditions)))
+      .orderBy(shortLinks.createdAt)
+  } catch (error) {
+    return storageError(response, 'list', error)
+  }
 
   const tokenById = new Map(validLinks.map((link) => [link.id, link.managementToken]))
   response.setHeader('Cache-Control', 'no-store')

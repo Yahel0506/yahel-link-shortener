@@ -3,6 +3,19 @@ import { ArrowDown, Check, Copy, ExternalLink, Link2, LoaderCircle, Trash2 } fro
 
 const STORAGE_KEY = 'yaheldev-managed-short-links-v2'
 
+async function readApiResponse(response) {
+  const raw = await response.text()
+  let payload
+  try {
+    payload = raw ? JSON.parse(raw) : {}
+  } catch {
+    payload = { error: raw || 'El servidor devolvió una respuesta inesperada.' }
+  }
+
+  if (!response.ok) throw new Error(payload.error || 'No se pudo completar la solicitud.')
+  return payload
+}
+
 function readOwnedLinks() {
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY))
@@ -118,8 +131,7 @@ export default function App() {
       signal: controller.signal,
     })
       .then(async (response) => {
-        const payload = await response.json()
-        if (!response.ok) throw new Error(payload.error)
+        const payload = await readApiResponse(response)
         setHistory(payload.links)
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.links))
       })
@@ -160,8 +172,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: normalizeUrl(url) }),
       })
-      const payload = await response.json()
-      if (!response.ok) throw new Error(payload.error || 'No se pudo acortar el enlace.')
+      const payload = await readApiResponse(response)
 
       setCurrentLink(payload.link)
       setHistory((previous) => {
@@ -188,11 +199,7 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ managementToken: link.managementToken }),
     })
-    const payload = await response.json()
-    if (!response.ok) {
-      setError(payload.error || 'No se pudo eliminar el enlace.')
-      throw new Error(payload.error)
-    }
+    await readApiResponse(response)
 
     setHistory((previous) => {
       const next = previous.filter((item) => item.id !== link.id)

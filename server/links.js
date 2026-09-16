@@ -47,3 +47,14 @@ export function methodNotAllowed(response, allowed) {
   response.setHeader('Allow', allowed)
   return response.status(405).json({ error: 'Método no permitido.' })
 }
+
+export function storageError(response, scope, error) {
+  console.error('[link-storage]', scope, {
+    code: error?.code,
+    message: error?.message,
+  })
+  return response.status(503).json({
+    error: 'No se pudo conectar con el almacenamiento de enlaces. Intenta de nuevo.',
+    code: 'LINK_STORAGE_UNAVAILABLE',
+  })
+}
