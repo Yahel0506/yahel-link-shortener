@@ -1,0 +1,42 @@
+import { shortLinks } from '../db/schema.js'
+import { db } from '../server/db.js'
+import {
+  createManagementToken,
+  createShortCode,
+  hashManagementToken,
+  methodNotAllowed,
+  normalizeDestination,
+  publicLink,
+} from '../server/links.js'
+
+export default async function handler(request, response) {
+  if (request.method !== 'POST') return methodNotAllowed(response, 'POST')
+
+  let destinationUrl
+  try {
+    destinationUrl = normalizeDestination(request.body?.url)
+  } catch {
+    return response.status(400).json({ error: 'Pega un enlace válido con dominio completo.' })
+  }
+
+  const managementToken = createManagementToken()
+  const managementTokenHash = hashManagementToken(managementToken)
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const shortCode = createShortCode()
+    try {
+      const [created] = await db
+        .insert(shortLinks)
+        .values({ shortCode, destinationUrl, managementTokenHash })
+        .returning()
+
+      response.setHeader('Cache-Control', 'no-store')
+      return response.status(201).json({ link: publicLink(created, managementToken) })
+    } catch (error) {
+      const isCollision = error?.code === '23505'
+      if (!isCollision || attempt === 3) throw error
+    }
+  }
+
+  return response.status(500).json({ error: 'No se pudo crear el enlace.' })
+}
