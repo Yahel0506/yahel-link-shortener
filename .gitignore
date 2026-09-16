@@ -1,0 +1,9 @@
+node_modules/
+dist/
+outputs/
+work/
+.vercel/
+.neon
+.env
+.env.*
+!.env.example
