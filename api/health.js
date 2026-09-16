@@ -19,8 +19,8 @@ export default async function handler(request, response) {
     })
   } catch (error) {
     console.error('[link-storage]', 'health', {
-      code: error?.code,
-      message: error?.message,
+      code: error?.code ?? error?.cause?.code,
+      message: error?.cause?.message ?? error?.message,
       reason: storageErrorReason(error),
     })
     return response.status(503).json({
