@@ -194,7 +194,7 @@ export default function App() {
   }
 
   const deleteLink = async (link) => {
-    const response = await fetch(`/api/links/${link.id}`, {
+    const response = await fetch(`/api/links?id=${encodeURIComponent(link.id)}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ managementToken: link.managementToken }),
